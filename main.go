@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
 	"net/http"
@@ -9,6 +10,8 @@ import (
 )
 
 const defaultUrl = "https://charm.sh"
+
+var url *string
 
 type errMsg struct{ err error }
 type statusMsg int
@@ -22,10 +25,10 @@ func (e errMsg) Error() string {
 	return e.err.Error()
 }
 
-func checkServer(url string) tea.Cmd {
+func checkServer(url *string) tea.Cmd {
 	return func() tea.Msg {
 		c := &http.Client{Timeout: 10 * time.Second}
-		resp, err := c.Get(url)
+		resp, err := c.Get(*url)
 
 		if err != nil {
 			return errMsg{err: err}
@@ -38,7 +41,7 @@ func checkServer(url string) tea.Cmd {
 }
 
 func (m model) Init() tea.Cmd {
-	return checkServer(defaultUrl)
+	return checkServer(url)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -63,7 +66,7 @@ func (m model) View() string {
 		return fmt.Sprintf("\nError: %v\n\n", m.err)
 	}
 
-	s := fmt.Sprintf("Checking status of %s... \n\n", defaultUrl)
+	s := fmt.Sprintf("Checking status of %s... \n\n", *url)
 
 	if m.status > 0 {
 		s += fmt.Sprintf("%d %s!", m.status, http.StatusText(m.status))
@@ -73,6 +76,8 @@ func (m model) View() string {
 }
 
 func main() {
+	url = flag.String("url", defaultUrl, "URL to download")
+	flag.Parse()
 	_, err := tea.NewProgram(model{}).Run()
 	if err != nil {
 		fmt.Printf("%v\n", err)
