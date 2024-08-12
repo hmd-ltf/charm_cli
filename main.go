@@ -2,81 +2,78 @@ package main
 
 import (
 	"fmt"
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"os"
 )
 
-type model struct {
-	choices  []string
-	cursor   int
-	selected map[int]struct{}
+type Status int
+
+const (
+	todo Status = iota
+	Scheduled
+	InProgress
+	Done
+)
+
+type Task struct {
+	status      Status
+	title       string
+	description string
 }
 
-func initialModel() model {
-	return model{
-		choices:  []string{"Buy GPT", "Buy VPN", "Buy Hub"},
-		cursor:   0,
-		selected: make(map[int]struct{}),
-	}
+func (t *Task) FilterValue() string {
+	return t.title
+}
+func (t *Task) Title() string {
+	return t.title
+}
+func (t *Task) Description() string {
+	return t.description
 }
 
-func (m model) Init() tea.Cmd {
+type Model struct {
+	list list.Model
+	err  error
+}
+
+// Call on tea.window size msg
+func (m *Model) initList(width, height int) {
+	m.list = list.New([]list.Item{}, list.NewDefaultDelegate(), width, height)
+	m.list.Title = "Todo List"
+	m.list.SetItems([]list.Item{
+		&Task{status: todo, title: "Buy Milk", description: "Buy any milk you can find for the cat"},
+		&Task{status: todo, title: "Install Linux", description: "Cause fuck windows"},
+		&Task{status: todo, title: "Learn Charm Cli", description: "Learn Go Lang"},
+	})
+}
+
+func (m *Model) Init() tea.Cmd {
 	return nil
 }
-
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "q":
-			return m, tea.Quit
-		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor = m.cursor - 1
-			}
-		case "down", "j":
-			if m.cursor < len(m.choices)-1 {
-				m.cursor = m.cursor + 1
-			}
-		case "enter", " ":
-			if _, ok := m.selected[m.cursor]; ok {
-				delete(m.selected, m.cursor)
-			} else {
-				m.selected[m.cursor] = struct{}{}
-			}
-		}
+	case tea.WindowSizeMsg:
+		m.initList(msg.Width, msg.Height)
 	}
-	return m, nil
+
+	var cmd tea.Cmd
+	m.list, cmd = m.list.Update(msg)
+	return m, cmd
+}
+func (m *Model) View() string {
+	return m.list.View()
 }
 
-func (m model) View() string {
-	s := "What to buy next with the Credit card \n\n"
-
-	for i, choice := range m.choices {
-		cursor := "  "
-		if m.cursor == i {
-			cursor = "->"
-		}
-
-		checked := " "
-		if _, ok := m.selected[i]; ok {
-			checked = "X"
-		}
-
-		s += fmt.Sprintf("%s [%s] %s\n", cursor, checked, choice)
-	}
-
-	s += "\nPress q to Quit\n"
-
-	return s
+func New() *Model {
+	return &Model{}
 }
 
 func main() {
-	p := tea.NewProgram(initialModel())
+	p := tea.NewProgram(New())
 	_, err := p.Run()
 	if err != nil {
 		fmt.Printf("%v\n", err)
 		os.Exit(1)
 	}
-
 }
