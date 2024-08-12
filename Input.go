@@ -24,7 +24,9 @@ func (s ShortAnswerField) Blur() tea.Msg {
 	return s.textInput.Blur
 }
 func (s ShortAnswerField) Update(msg tea.Msg) (Input, tea.Cmd) {
-	return s.textInput.Update(msg)
+	var cmd tea.Cmd
+	s.textInput, cmd = s.textInput.Update(msg)
+	return s, cmd
 }
 func (s ShortAnswerField) View() string {
 	return s.textInput.View()
@@ -37,24 +39,26 @@ func NewShortAnswerField() Input {
 }
 
 type LongAnswerField struct {
-	textInput textarea.Model
+	textArea textarea.Model
 }
 
 func (l LongAnswerField) Value() string {
-	return l.textInput.Value()
+	return l.textArea.Value()
 }
 func (l LongAnswerField) Blur() tea.Msg {
-	return l.textInput.Blur
+	return l.textArea.Blur
 }
 func (l LongAnswerField) Update(msg tea.Msg) (Input, tea.Cmd) {
-	return l.textInput.Update(msg)
+	var cmd tea.Cmd
+	l.textArea, cmd = l.textArea.Update(msg)
+	return l, cmd
 }
 func (l LongAnswerField) View() string {
-	return l.textInput.View()
+	return l.textArea.View()
 }
 func NewLongAnswerField() Input {
 	ta := textarea.New()
 	ta.Placeholder = "Your Answer"
 	ta.Focus()
-	return LongAnswerField{textInput: ta}
+	return LongAnswerField{textArea: ta}
 }

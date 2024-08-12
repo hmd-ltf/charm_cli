@@ -16,7 +16,7 @@ type Styles struct {
 type Question struct {
 	question  string
 	answer    string
-	inputType ShortAnswerField
+	inputType Input
 }
 
 type Model struct {
