@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textarea"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"os"
@@ -30,7 +32,16 @@ const divisor = 5
 var (
 	columnStyle  = lipgloss.NewStyle().Padding(1, 2)
 	focusedStyle = lipgloss.NewStyle().Padding(1, 2).Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("62"))
-	helpStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+	//helpStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+)
+
+var cliModels []tea.Model
+
+type modelStatus int
+
+const (
+	MainModel modelStatus = iota
+	FormModel
 )
 
 type Task struct {
@@ -39,16 +50,20 @@ type Task struct {
 	description string
 }
 
-func (t Task) FilterValue() string {
+func (t *Task) FilterValue() string {
 	return t.title
 }
 
-func (t Task) Title() string {
+func (t *Task) Title() string {
 	return t.title
 }
 
-func (t Task) Description() string {
+func (t *Task) Description() string {
 	return t.description
+}
+
+func NewTask(status TaskStatus, title, description string) Task {
+	return Task{status: status, title: title, description: description}
 }
 
 func (t *Task) Next() {
@@ -116,7 +131,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Next()
 		case "enter":
 			return m, m.MoveToNext
+		case "n":
+			cliModels[MainModel] = m
+			cliModels[FormModel] = NewForm(m.focused)
+			return cliModels[FormModel].Update(nil)
 		}
+	case Task:
+		task := msg
+		return m, m.lists[task.status].InsertItem(len(m.lists[task.status].Items())-1, &task)
 	}
 
 	var cmd tea.Cmd
@@ -209,8 +231,59 @@ func (m *Model) MoveToNext() tea.Msg {
 	return nil
 }
 
+type Form struct {
+	focused     TaskStatus
+	title       textinput.Model
+	description textarea.Model
+}
+
+func (f *Form) Init() tea.Cmd {
+	return nil
+}
+func (f *Form) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "q":
+			return f, tea.Quit
+		case "enter":
+			if f.title.Focused() {
+				f.title.Blur()
+				f.description.Focus()
+				return f, textarea.Blink
+			} else {
+				return cliModels[MainModel], f.CreateTask
+			}
+		}
+	}
+
+	if f.title.Focused() {
+		f.title, cmd = f.title.Update(msg)
+	} else {
+		f.description, cmd = f.description.Update(msg)
+	}
+
+	return f, cmd
+}
+func (f *Form) View() string {
+	return lipgloss.JoinVertical(lipgloss.Center, f.title.View(), f.description.View())
+}
+
+func (f *Form) CreateTask() tea.Msg {
+	return NewTask(f.focused, f.title.Value(), f.description.Value())
+}
+
+func NewForm(status TaskStatus) *Form {
+	form := &Form{focused: status, title: textinput.New(), description: textarea.New()}
+	form.title.Focus()
+	return form
+}
+
 func main() {
-	p := tea.NewProgram(New())
+	cliModels = []tea.Model{New(), NewForm(Todo)}
+	p := tea.NewProgram(cliModels[MainModel])
 	_, err := p.Run()
 	if err != nil {
 		fmt.Printf("%v\n", err)
